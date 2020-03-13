@@ -161,11 +161,11 @@ def make_public(tsv, privacy_threshold=500):
     print("{0} rows before aggregation / trimming.".format(len(df)))
     df['site'] = df['refererhost'].apply(host_to_site)
     df = df[~df['site'].isnull()]
-    df.groupby(['site', 'pageid'])[['countextdesktop', 'countextmobile', 'countextall', 'smtcountyesterday', 'totalpageviews']].sum()
+    df = df.groupby(['site', 'pageid'])[['countextdesktop', 'countextmobile', 'countextall', 'smtcountyesterday', 'totalpageviews']].sum()
     df = df[df['countextall'] > privacy_threshold]
     df['smtcountyesterday'] = df['smtcountyesterday'].apply(enforce_threshold, args=(privacy_threshold,))
     output_tsv_fn = tsv.replace('.tsv', '_public.tsv')
-    df.to_csv(output_tsv_fn, sep='\t', index=False)
+    df.to_csv(output_tsv_fn, sep='\t')
     print("{0} rows after aggregation / trimming.".format(len(df)))
     return output_tsv_fn
 
