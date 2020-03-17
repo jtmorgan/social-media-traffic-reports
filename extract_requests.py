@@ -62,10 +62,10 @@ def add_day_to_hive_smtr_table(year, month, day, data_threshold=100, hive_db='is
            AND normalized_host.project = 'en'
            AND namespace_id = 0
            AND agent_type = 'user'
-           AND (referer LIKE '%reddit.com' OR
-                referer LIKE '%facebook.com' OR 
+           AND (referer LIKE '%reddit.com%' OR
+                referer LIKE '%facebook.com%' OR 
                 referer LIKE '%t.co/%' OR 
-                referer LIKE '%twitter.com' OR 
+                referer LIKE '%twitter.com%' OR 
                 referer LIKE '%youtu%')
      GROUP BY page_id,
            PARSE_URL(referer, 'HOST')
@@ -190,7 +190,7 @@ def host_to_site(host):
         return 'Youtube'
     elif 'reddit' in host:
         return 'Reddit'
-    elif 'twitter' in host or 't.co' in host:
+    elif 'twitter' in host or host == 't.co':
         return 'Twitter'
 
 def valid_args(args):
