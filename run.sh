@@ -4,9 +4,10 @@ HIVE_DB="isaacj"
 DATA_THRESHOLD=20
 PRIVACY_THRESHOLD=500
 DATA_DIR="./data"
-DAY=$(date '+%d')
-MONTH=$(date '+%m')
-YEAR=$(date '+%Y')
+# https://stackoverflow.com/questions/15374752/get-yesterdays-date-in-bash-on-linux-dst-safe
+DAY=$(date -d "yesterday 13:00" '+%d')
+MONTH=$(date -d "yesterday 13:00" '+%m')
+YEAR=$(date -d "yesterday 13:00" '+%Y')
 
 echo "Running pipeline for ${YEAR}-${MONTH}-${DAY}."
 
