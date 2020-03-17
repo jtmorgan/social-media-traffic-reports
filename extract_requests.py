@@ -218,6 +218,8 @@ def valid_args(args):
         print("{0} does not exist. You must create it first.".format(args.output_directory))
         is_valid = False
 
+    print("Arguments: {0}".format(args))
+
     return is_valid
 
 def check_kerberos_auth():
