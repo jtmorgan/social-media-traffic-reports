@@ -2,6 +2,7 @@
 
 import argparse
 import config #see config.py.sample for more information
+from datetime import datetime, timedelta
 import pandas as pd
 import requests
 from requests_oauthlib import OAuth1
@@ -13,17 +14,17 @@ auth1 = OAuth1(config.consumer_key,
                config.access_secret)
 
 #page template (top)
-rt_header = """=== Top articles by social media traffic ===
+rt_header = """=== Top articles by social media traffic on {year}-{month}-{day} ===
 Last updated on ~~~~~
 
 The data in this table is fake, and just used for testing purposes.
 
-{| class="wikitable sortable"
+{{| class="wikitable sortable"
 !Rank
 !Platform
 !Article
-!Platform traffic DATE
-|Platform traffic DATE
+!Platform traffic {month}-{day}
+|Platform traffic {month2}-{day2}
 |All traffic DATE
 |Watchers
 |Visiting watchers
@@ -75,6 +76,15 @@ def prepare_data(df_traffic):
 
     #join this list into a single string
     rows_wiki = ''.join(report_rows)
+
+    date_parts = {'year': datetime.strftime(datetime.now() - timedelta(1), '%Y'),
+   'month' : datetime.strftime(datetime.now() - timedelta(1), '%m'),
+   'day': datetime.strftime(datetime.now() - timedelta(1), '%d'),
+   'month2' : datetime.strftime(datetime.now() - timedelta(2), '%m'),
+   'day2': datetime.strftime(datetime.now() - timedelta(2), '%d'),
+        }
+
+    header = rt_header.format(**date_parts)
 
     #combine the header with the now-populated table rows
     output = rt_header + rows_wiki + "|}"
@@ -138,7 +148,7 @@ def publish_report(output, auth1, edit_token):
         'action': "edit",
         'title': "User:Jmorgan_(WMF)/sandbox", #TODO add to config
 #         'section': "new",
-        'summary': "testing publish_report.py using fake data", #TODO add to config
+        'summary': "testing publish_report.py", #TODO add to config
         'text': output,
         'bot': 0,
         'token': edit_token,
@@ -161,9 +171,9 @@ if __name__ == "__main__":
 
     output = prepare_data(df_traffic)
 
-    edit_token = get_token(auth1)
-
-    publish_report(output, auth1, edit_token)
+#     edit_token = get_token(auth1)
+#
+#     publish_report(output, auth1, edit_token)
 
 
 
