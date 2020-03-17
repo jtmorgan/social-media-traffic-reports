@@ -167,7 +167,7 @@ if __name__ == "__main__":
                         help="TSV file with articles that exceeded the privacy threshold for social-media referrals.")
     args = parser.parse_args()
 
-    df_traffic = pd.read_csv(args.data_tsv)
+    df_traffic = pd.read_csv(args.data_tsv, , delimiter='\t',encoding='utf-8')
 
     output = prepare_data(df_traffic)
 
