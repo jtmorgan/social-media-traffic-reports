@@ -7,9 +7,9 @@ import requests
 from requests_oauthlib import OAuth1
 
 #instantiate authentication
-auth1 = OAuth1(config.consumer_key, 
-               config.consumer_secret, 
-               config.access_key, 
+auth1 = OAuth1(config.consumer_key,
+               config.consumer_secret,
+               config.access_key,
                config.access_secret)
 
 #page template (top)
@@ -40,40 +40,49 @@ def prepare_data(df_traffic):
     """
 
     #sort by descending views
-    df_traffic.sort_values('Page_views', ascending=False, inplace=True)
+    df_traffic.sort_values('smtpageviews', ascending=False, inplace=True)
 
     #create a new set of ranks
     new_rank = range(1, len(df_traffic)+1)
 
     #swap in the new value in the 'Rank' column
-    df_traffic['Rank'] = list(new_rank)
+    df_traffic['rank'] = list(new_rank)
 
     #re-zero the index
     df_traffic.reset_index(drop=True, inplace=True)
-    
+
     #format the individual table rows with the data
     #from each row of the dataframe, preserving the order
-    report_rows = [format_row(x, y, z, a, rt_row) for x, y, z, a in zip(df_traffic['Rank'], df_traffic['Platform'], df_traffic['Page_Title'], df_traffic['Page_views'])]
+    report_rows = [format_row(rank, title, p_views, p_views_y, t_views, watch, v_watch, rt_row)
+    for rank, title, p_views, p_views_y, t_views, watch, v_watch
+    in zip(df_traffic['rank'],
+            df_traffic['page_title'],
+            df_traffic['smtpageviews'],
+            df_traffic['smtcountyesterday'],
+            df_traffic['totalpageviews'],
+            df_traffic['watchers'],
+            df_traffic['visitingwatchers'],
+            )]
 
     #join this list into a single string
     rows_wiki = ''.join(report_rows)
-    
+
     #combine the header with the now-populated table rows
     output = rt_header + rows_wiki + "|}"
-    
+
     print(output)
     return(output)
-    
-    
+
+
 def format_row(rank, platform, title, views, row_template):
     """
     Accepts an iterator from the dataframe with data from each row
     Returns the rows formatted per the wikitext table row template
     """
-    
-    table_row = {'rank': rank, 
-           'platform' : platform, 
-           'title': title, 
+
+    table_row = {'rank': rank,
+           'platform' : platform,
+           'title': title,
         'views' : views,
                     }
 
@@ -98,13 +107,13 @@ def get_token(auth1):
         headers={'User-Agent': "jmorgan@wikimedia.org"}, #TODO add to config
         auth=auth1,
         ).json()
-    
+
     print(result)
-    
+
     edit_token = result['query']['tokens']['csrftoken']
-    
+
     return(edit_token)
-    
+
 def publish_report(output, auth1, edit_token):
     """
     Accepts the page text, credentials and edit token
@@ -125,7 +134,7 @@ def publish_report(output, auth1, edit_token):
     headers={'User-Agent': "jmorgan@wikimedia.org"}, #TODO add to config
     auth=auth1
         )
-    
+
     print(response)
 
 if __name__ == "__main__":
@@ -134,13 +143,13 @@ if __name__ == "__main__":
     parser.add_argument("--data_tsv", default="fake_data.csv",
                         help="TSV file with articles that exceeded the privacy threshold for social-media referrals.")
     args = parser.parse_args()
-    
+
     df_traffic = pd.read_csv(args.data_tsv)
 
     output = prepare_data(df_traffic)
 
     edit_token = get_token(auth1)
-    
+
     publish_report(output, auth1, edit_token)
 
 
