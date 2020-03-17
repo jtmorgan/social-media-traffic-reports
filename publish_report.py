@@ -21,8 +21,12 @@ The data in this table is fake, and just used for testing purposes.
 {| class="wikitable sortable"
 !Rank
 !Platform
-!Page title
-!Page views
+!Article
+!Platform traffic DATE
+|Platform traffic DATE
+|All traffic DATE
+|Watchers
+|Visiting watchers
 """
 
 #template for individual table rows
@@ -30,7 +34,11 @@ rt_row = """|-
 |{rank}
 |{platform}
 |[[w:{title}|{title}]]
-|{views}
+|{p_views}
+|{p_views_y}
+|{t_views}
+|{watch}
+|{v_watch}
 """
 
 def prepare_data(df_traffic):
@@ -53,9 +61,10 @@ def prepare_data(df_traffic):
 
     #format the individual table rows with the data
     #from each row of the dataframe, preserving the order
-    report_rows = [format_row(rank, title, p_views, p_views_y, t_views, watch, v_watch, rt_row)
-    for rank, title, p_views, p_views_y, t_views, watch, v_watch
+    report_rows = [format_row(a, b, c, d, e, f, g, h, rt_row)
+    for a, b, c, d, e, f, g, h
     in zip(df_traffic['rank'],
+            df_traffic['site'],
             df_traffic['page_title'],
             df_traffic['smtpageviews'],
             df_traffic['smtcountyesterday'],
@@ -74,7 +83,7 @@ def prepare_data(df_traffic):
     return(output)
 
 
-def format_row(rank, platform, title, views, row_template):
+def format_row(rank, platform, title, p_views, p_views_y, t_views, watch, v_watch, row_template):
     """
     Accepts an iterator from the dataframe with data from each row
     Returns the rows formatted per the wikitext table row template
@@ -83,7 +92,11 @@ def format_row(rank, platform, title, views, row_template):
     table_row = {'rank': rank,
            'platform' : platform,
            'title': title,
-        'views' : views,
+           'p_views' : p_views,
+           'p_views_y' : p_views_y,
+           't_views' : t_views,
+           'watch' : watch,
+           'v_watch' :v_watch,
                     }
 
     row = row_template.format(**table_row)
