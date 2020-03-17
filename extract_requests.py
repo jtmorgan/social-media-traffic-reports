@@ -107,8 +107,8 @@ def smtr_counts_to_tsv(hive_db, year, month, day, output_dir):
           ) y
         ON (t.pageID = y.pageID);""".format(hive_db, year, month, day, yesterday.year, yesterday.month, yesterday.day)
 
-    output_tsv_fn = os.path.join(output_dir, "smtr_{0}_{1}_{2}.tsv".format(year, month, day))
-    yesterday_fn = os.path.join(output_dir, "smtr_{0}_{1}_{2}.tsv".format(yesterday.year, yesterday.month, yesterday.day))
+    output_tsv_fn = os.path.join(output_dir, "smtr_{0}_{1:02}_{2:02}.tsv".format(year, month, day))
+    yesterday_fn = os.path.join(output_dir, "smtr_{0}_{1:02}_{2:02}.tsv".format(yesterday.year, yesterday.month, yesterday.day))
     exec_hive_stat2(query, output_tsv_fn)
     return output_tsv_fn, yesterday_fn
 
