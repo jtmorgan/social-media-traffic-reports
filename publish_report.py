@@ -1,5 +1,6 @@
 #! /usr/bin/env/ python
 
+import argparse
 import config #see config.py.sample for more information
 import pandas as pd
 import requests
@@ -128,8 +129,13 @@ def publish_report(output, auth1, edit_token):
     print(response)
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_tsv", default="fake_data.csv",
+                        help="TSV file with articles that exceeded the privacy threshold for social-media referrals.")
+    args = parser.parse_args()
     
-    df_traffic = pd.read_csv("fake_data.csv") #TODO pass file title as command line arg
+    df_traffic = pd.read_csv(args.data_tsv)
 
     output = prepare_data(df_traffic)
 
