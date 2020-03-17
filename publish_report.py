@@ -7,6 +7,13 @@ import pandas as pd
 import requests
 from requests_oauthlib import OAuth1
 
+##TODO
+#percent change d-o-d column
+#>30, >100? instaed of zeros
+#categories
+#link to About page
+#print to first page section
+
 #instantiate authentication
 auth1 = OAuth1(config.consumer_key,
                config.consumer_secret,
@@ -14,20 +21,18 @@ auth1 = OAuth1(config.consumer_key,
                config.access_secret)
 
 #page template (top)
-rt_header = """=== Top articles by social media traffic on {year}-{month}-{day} ===
+rt_header = """== Top articles by social media traffic on {year}-{month}-{day} ==
 Last updated on ~~~~~
-
-The data in this table is fake, and just used for testing purposes.
 
 {{| class="wikitable sortable"
 !Rank
 !Platform
 !Article
 !Platform traffic {month}-{day}
-|Platform traffic {month2}-{day2}
-|All traffic DATE
-|Watchers
-|Visiting watchers
+!Platform traffic {month2}-{day2}
+!All traffic {month}-{day}
+!Watchers
+!Visiting watchers
 """
 
 #template for individual table rows
@@ -87,7 +92,7 @@ def prepare_data(df_traffic):
     header = rt_header.format(**date_parts)
 
     #combine the header with the now-populated table rows
-    output = rt_header + rows_wiki + "|}"
+    output = header + rows_wiki + "|}"
 
     print(output)
     return(output)
@@ -158,7 +163,7 @@ def publish_report(output, auth1, edit_token):
     auth=auth1
         )
 
-    print(response)
+#     print(response)
 
 if __name__ == "__main__":
 
@@ -167,13 +172,13 @@ if __name__ == "__main__":
                         help="TSV file with articles that exceeded the privacy threshold for social-media referrals.")
     args = parser.parse_args()
 
-    df_traffic = pd.read_csv(args.data_tsv, , delimiter='\t',encoding='utf-8')
+    df_traffic = pd.read_csv(args.data_tsv, delimiter='\t',encoding='utf-8')
 
     output = prepare_data(df_traffic)
 
-#     edit_token = get_token(auth1)
-#
-#     publish_report(output, auth1, edit_token)
+    edit_token = get_token(auth1)
+
+    publish_report(output, auth1, edit_token)
 
 
 
