@@ -10,6 +10,7 @@ from requests_oauthlib import OAuth1
 ##TODO
 #percent change d-o-d column
 #>30, >100? instaed of zeros
+#argparse switch to print to either sandbox or production
 
 #instantiate authentication
 auth1 = OAuth1(config.consumer_key,
@@ -77,12 +78,8 @@ def prepare_data(df_traffic):
     rows_wiki = ''.join(report_rows)
 
     #get datestrings from yesterday and the day before to populate the wikitable
-    date_parts = {'year': datetime.strftime(datetime.now() - timedelta(1), '%Y'),
-   'month' : datetime.strftime(datetime.now() - timedelta(1), '%m'),
-   'day': datetime.strftime(datetime.now() - timedelta(1), '%d'),
-   'month2' : datetime.strftime(datetime.now() - timedelta(2), '%m'),
-   'day2': datetime.strftime(datetime.now() - timedelta(2), '%d'),
-        }
+    date_parts = get_yesterdates()
+
     #format wikipage header template
     header = rt_header.format(**date_parts)
 
@@ -92,6 +89,18 @@ def prepare_data(df_traffic):
 #     print(output)
     return(output)
 
+def get_yesterdates():
+    """
+    Returns month, day year for yesterday; month and day for day before
+    """
+    date_parts = {'year': datetime.strftime(datetime.now() - timedelta(1), '%Y'),
+       'month' : datetime.strftime(datetime.now() - timedelta(1), '%m'),
+       'day': datetime.strftime(datetime.now() - timedelta(1), '%d'),
+       'month2' : datetime.strftime(datetime.now() - timedelta(2), '%m'),
+       'day2': datetime.strftime(datetime.now() - timedelta(2), '%d'),
+        }
+
+    return date_parts
 
 def format_row(rank, platform, title, p_views, p_views_y, t_views, watch, v_watch, row_template):
     """
@@ -142,13 +151,15 @@ def publish_report(output, auth1, edit_token):
     Publishes the formatted page text to the specified wiki
     """
 
+    edit_sum = "Social media traffic report for {year}-{month}-{day}".format(**get_yesterdates()) #untested
+
     response = requests.post(
     url = config.url,
     data={
         'action': "edit",
         'title': config.page_title,
         'section': config.edit_sec,
-        'summary': "testing publish_report.py", #TODO pass in report dates
+        'summary': edit_sum,
         'text': output,
         'bot': 0,
         'token': edit_token,
