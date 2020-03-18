@@ -3,3 +3,6 @@ config.py
 
 #Byte-compiled/ optimized / DLL files
 __pycache__/
+
+#environment folder
+venv/
