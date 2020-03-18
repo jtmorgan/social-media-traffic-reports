@@ -6,3 +6,6 @@ __pycache__/
 
 #environment folder
 venv/
+
+#data folder
+data/
