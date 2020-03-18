@@ -6,3 +6,15 @@ consumer_key = "your consumer key"
 consumer_secret = "your consumer secret"
 access_key = "your access key"
 access_secret = "your access secret"
+
+#the user agent string, e.g. "jmorgan@wikimedia.org"
+user_agent = "me@email.com"
+
+# the URL for the API request e.g. "https://test.wikipedia.org/w/api.php"
+url = "https://test.wikipedia.org/w/api.php"
+
+# the namespace and title of the page to publish to e.g. "User:Jmorgan_(WMF)/sandbox"
+page_title = "Namespace:Page_path"
+
+# the numeric section of the page to (over)write, e.g. "1"
+edit_sec = "1"
