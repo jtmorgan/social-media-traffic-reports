@@ -79,38 +79,24 @@ def add_day_to_hive_smtr_table(year, month, day, data_threshold=100, hive_db='is
 def smtr_counts_to_tsv(hive_db, year, month, day, output_dir):
     # Embarrassingly I can't tell you why I need to use "MAX" in this query.
     # I thought "SUM" was the appropriate aggregator but that resulted in weird behavior.
-    yesterday = datetime.datetime(year=year, month=month, day=day) - datetime.timedelta(days=1)
     query = """
-    SELECT t.*,
-           COALESCE(y.SMTPageViews, 0) AS SMTCountYesterday
-      FROM (
-            SELECT s.RefererHost,
-                   s.PageID,
-                   MAX(s.SMTPageViews) AS SMTPageViews,
-                   SUM(p.view_count) AS TotalPageViews
-              FROM {0}.smtr_by_day s
-                   LEFT OUTER JOIN wmf.pageview_hourly p
-                   ON (s.PageID = p.page_id
-                       AND p.year = {1} AND p.month = {2} AND p.day = {3}
-                       AND p.namespace_id = 0
-                       AND p.agent_type = 'user'
-                       AND p.project = 'en.wikipedia')
-             WHERE s.year = {1} AND s.month = {2} AND s.day = {3}
-             GROUP BY s.RefererHost, s.PageID
-            ) t
-      LEFT OUTER JOIN (
-                       SELECT pageID,
-                              SUM(SMTPageViews) AS SMTPageViews
-                         FROM isaacj.smtr_by_day
-                        WHERE year = {4} AND month = {5} AND day = {6}
-                        GROUP BY pageID
-          ) y
-        ON (t.pageID = y.pageID);""".format(hive_db, year, month, day, yesterday.year, yesterday.month, yesterday.day)
+    SELECT s.RefererHost,
+           s.PageID,
+           MAX(s.SMTPageViews) AS SMTPageViews,
+           SUM(p.view_count) AS TotalPageViews
+      FROM {0}.smtr_by_day s
+      LEFT OUTER JOIN wmf.pageview_hourly p
+           ON (s.PageID = p.page_id
+               AND p.year = {1} AND p.month = {2} AND p.day = {3}
+               AND p.namespace_id = 0
+               AND p.agent_type = 'user'
+               AND p.project = 'en.wikipedia')
+     WHERE s.year = {1} AND s.month = {2} AND s.day = {3}
+     GROUP BY s.RefererHost, s.PageID;""".format(hive_db, year, month, day)
 
     output_tsv_fn = os.path.join(output_dir, "smtr_{0}_{1:02}_{2:02}.tsv".format(year, month, day))
-    yesterday_fn = os.path.join(output_dir, "smtr_{0}_{1:02}_{2:02}.tsv".format(yesterday.year, yesterday.month, yesterday.day))
     exec_hive_stat2(query, output_tsv_fn)
-    return output_tsv_fn, yesterday_fn
+    return output_tsv_fn
 
 def add_metadata(tsv):
     df = pd.read_csv(tsv, sep='\t')
@@ -163,21 +149,16 @@ def make_public(tsv, privacy_threshold=500, yesterdays_data=None):
     df['site'] = df['refererhost'].apply(host_to_site)
     df = df[~df['site'].isnull()]
     print("{0} rows after removing false positive sites.".format(len(df)))
-    df = df.groupby(['site', 'pageid'])[['smtpageviews', 'smtcountyesterday', 'totalpageviews']].sum()
+    df = df.groupby(['site', 'pageid'])[['smtpageviews', 'totalpageviews']].agg({'smtpageviews':sum, 'totalpageviews':max})
     df = df[df['smtpageviews'] > privacy_threshold]
-    df['smtcountyesterday'] = df['smtcountyesterday'].apply(enforce_threshold, args=(privacy_threshold,))
     if yesterdays_data is not None:
         df['smtcountyesterday'] = df.apply(match_yesterday, args=(yesterdays_data,), axis=1)
+    else:
+        df['smtcountyesterday'] = 0
     output_tsv_fn = tsv.replace('.tsv', '_public.tsv')
     df.to_csv(output_tsv_fn, sep='\t')
     print("{0} rows after aggregation / trimming.".format(len(df)))
     return output_tsv_fn
-
-def enforce_threshold(val, threshold):
-    if val >= threshold:
-        return val
-    else:
-        return 0
 
 def match_yesterday(row, yesterdays_data):
     uid = '{0}-{1}'.format(row.name[0], row.name[1])
@@ -266,14 +247,16 @@ def main():
 
         # export Hive data to TSV
         print("\n==Joining pageview_hourly and outputting to TSV==")
-        raw_counts_tsv, yesterday_tsv = smtr_counts_to_tsv(hive_db=args.hive_db,
-                                                           year=args.year, month=args.month, day=args.day,
-                                                           output_dir=args.output_directory)
+        raw_counts_tsv = smtr_counts_to_tsv(hive_db=args.hive_db,
+                                            year=args.year, month=args.month, day=args.day,
+                                            output_dir=args.output_directory)
         print("Raw counts TSV at: {0}".format(raw_counts_tsv))
 
         # clean up
         print("\n==Cleaning / applying privacy thresholds==")
-        yesterday_tsv = yesterday_tsv.replace('.tsv', '_public.tsv')
+        yday = datetime.datetime(year=args.year, month=args.month, day=args.day) - datetime.timedelta(days=1)
+        yesterday_tsv = os.path.join(args.output_directory,
+                                     "smtr_{0}_{1:02}_{2:02}_public.tsv".format(yday.year, yday.month, yday.day))
         if os.path.exists(yesterday_tsv):
             df = pd.read_csv(yesterday_tsv, sep='\t')
             df['site_pageid'] = df.apply(lambda x: '{0}-{1}'.format(x['site'], x['pageid']), axis=1)
