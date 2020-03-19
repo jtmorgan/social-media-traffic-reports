@@ -96,9 +96,9 @@ def format_lower_limits(df_traffic): #need to refactor!
 	Accepts a dataframe with these specific columns
 	Retu
 	"""
-	df_traffic.loc[(df_traffic.smtcountyesterday == 0), "smtcountyesterday"] = ">500"
-	df_traffic.loc[(df_traffic.visitingwatchers == 0), "visitingwatchers"] = ">30"
-	df_traffic.loc[(df_traffic.watchers == 0), "watchers"] = ">30"	
+	df_traffic.loc[(df_traffic.smtcountyesterday == 0), "smtcountyesterday"] = "< 500"
+	df_traffic.loc[(df_traffic.visitingwatchers == 0), "visitingwatchers"] = "< 30"
+	df_traffic.loc[(df_traffic.watchers == 0), "watchers"] = "< 30"	
 	
 	return df_traffic
 	
