@@ -240,7 +240,7 @@ def add_metadata(tsv, yesterday_tsv=None):
 
 def match_yesterday(row, yesterdays_data):
     """Look up unique site-pageID in yesterday's traffic data."""
-    uid = '{0}-{1}'.format(row.name[0], row.name[1])
+    uid = '{0}-{1}'.format(row['site'], row['pageid'])
     return yesterdays_data.get(uid, 0)
 
 
