@@ -225,11 +225,11 @@ def add_metadata(tsv, yesterday_tsv=None):
     # add social media traffic counts from yesterdays report.
     # set to zero if no report or site-pageID not in yesterday's report
     if os.path.exists(yesterday_tsv):
-        df = pd.read_csv(yesterday_tsv, sep='\t')
-        df['site_pageid'] = df.apply(lambda x: '{0}-{1}'.format(x['site'], x['pageid']), axis=1)
-        df.set_index('site_pageid', inplace=True)
-        yesterdays_data = df['smtpageviews'].to_dict()
-        df['smtcountyesterday'] = df.apply(match_yesterday, args=(yesterdays_data,), axis=1)
+        yday = pd.read_csv(yesterday_tsv, sep='\t')
+        yday['site_pageid'] = yday.apply(lambda x: '{0}-{1}'.format(x['site'], x['pageid']), axis=1)
+        yday.set_index('site_pageid', inplace=True)
+        yday = yday['smtpageviews'].to_dict()
+        df['smtcountyesterday'] = df.apply(match_yesterday, args=(yday,), axis=1)
     else:
         print("Did not find data from yesterday: {0}".format(yesterday_tsv))
         df['smtcountyesterday'] = 0
