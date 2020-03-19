@@ -1,12 +1,65 @@
 import argparse
 import datetime
 import os
-import requests
 import subprocess
 import time
 import traceback
 
 import pandas as pd
+import requests
+
+
+def valid_args(args):
+    """Check if command-line arguments are valid."""
+    is_valid = True
+    # valid date?
+    try:
+        datetime.datetime(year=args.year, month=args.month, day=args.day)
+    except Exception:
+        traceback.print_exc()
+        is_valid = False
+
+    # have run kinit?
+    try:
+        check_kerberos_auth()
+    except OSError:
+        traceback.print_exc()
+        is_valid = False
+
+    # data threshold (private) should be less than or equal to privacy threshold (public)
+    if args.data_threshold > args.privacy_threshold:
+        print("Data threshold is {0}, which is greater than the privacy threshold ({1}).".format(args.data_threshold, args.privacy_threshold))
+        is_valid = False
+
+    # unless another review is conducted by Security, 500 is the lowest allowed privacy threshold
+    if args.privacy_threshold < 500:
+        print("Privacy threshold may be set too low at {0}. Should be at least 500.".format(args.privacy_threshold))
+        is_valid = False
+
+    # make sure data directory for TSV exists
+    if not os.path.isdir(args.output_directory):
+        print("{0} does not exist. You must create it first.".format(args.output_directory))
+        is_valid = False
+
+    print("Arguments: {0}".format(args))
+    return is_valid
+
+def check_kerberos_auth():
+    """Check Kerberos authentication.
+
+    Taken from https://github.com/neilpquinn/wmfdata/blob/a2d0ed1085ccc6cf79e74f4b8da6dd1f72eef1f9/wmfdata/utils.py
+    TODO: depend on wmfdata package.
+    """
+    klist = subprocess.call(["klist", "-s"])
+    if klist == 1:
+        raise OSError(
+            "You do not have Kerberos credentials. Authenticate using `kinit` "
+            "or run your script as a keytab-enabled user."
+        )
+    elif klist != 0:
+        raise OSError(
+          "There was an unknown issue checking your Kerberos credentials."
+        )
 
 def exec_hive_stat2(query, filename=None, verbose=True, nice=True, large=False):
     """Query Hive."""
@@ -22,11 +75,8 @@ def exec_hive_stat2(query, filename=None, verbose=True, nice=True, large=False):
     ret = os.system(cmd)
     return ret
 
-
 def create_hive_trace_table(hive_db='isaacj', nice=True):
-    """
-    Create a table for pageview counts partitioned by day
-    """
+    """Create a table for pageview counts partitioned by day."""
 
     query = """
     CREATE TABLE IF NOT EXISTS {0}.smtr_by_day (
@@ -41,12 +91,12 @@ def create_hive_trace_table(hive_db='isaacj', nice=True):
     STORED AS PARQUET;
     """.format(hive_db)
 
-    # PageTitle STRING,
-
     exec_hive_stat2(query, nice=nice)
 
 
 def add_day_to_hive_smtr_table(year, month, day, data_threshold=100, hive_db='isaacj', nice=True):
+    """Add one day's worth of data to the Hive table."""
+
     query = """
     INSERT OVERWRITE TABLE {0}.smtr_by_day
     PARTITION(year={1}, month={2}, day={3})
@@ -71,14 +121,16 @@ def add_day_to_hive_smtr_table(year, month, day, data_threshold=100, hive_db='is
            PARSE_URL(referer, 'HOST')
     HAVING COUNT(1) > {4};""".format(hive_db, year, month, day, data_threshold)
 
-    # pageview_info['page_title'] AS PageTitle,  # add to GROUP BY as well
-
     exec_hive_stat2(query, nice=nice)
 
 
 def smtr_counts_to_tsv(hive_db, year, month, day, output_dir):
-    # Embarrassingly I can't tell you why I need to use "MAX" in this query.
-    # I thought "SUM" was the appropriate aggregator but that resulted in weird behavior.
+    """Write traffic counts to TSV for further analysis / publshing.
+
+    NOTE: Embarrassingly I can't tell you why I need to use "MAX" in this query.
+    I thought "SUM" was the appropriate aggregator but that resulted in weird behavior
+    even though each RefererHost and pageID should only occur once in a given partition.
+    """
     query = """
     SELECT s.RefererHost,
            s.PageID,
@@ -98,7 +150,48 @@ def smtr_counts_to_tsv(hive_db, year, month, day, output_dir):
     exec_hive_stat2(query, output_tsv_fn)
     return output_tsv_fn
 
-def add_metadata(tsv):
+def make_public(tsv, privacy_threshold=500):
+    """Enforce privacy thresholds for public reporting."""
+    df = pd.read_csv(tsv, sep='\t')
+    print("{0} rows before aggregation / trimming.".format(len(df)))
+    df = df[~df['refererhost'].isnull()]
+    print("{0} rows after removing null hosts.".format(len(df)))
+    df['site'] = df['refererhost'].apply(host_to_site)
+    df = df[~df['site'].isnull()]
+    print("{0} rows after removing false positive sites.".format(len(df)))
+    df = df.groupby(['site', 'pageid'])[['smtpageviews', 'totalpageviews']].agg({'smtpageviews':sum, 'totalpageviews':max})
+    print("{0} rows after grouping by platform.".format(len(df)))
+    df = df[df['smtpageviews'] > privacy_threshold]
+    print("{0} rows after enforcing privacy threshold of {0} page views.".format(len(df), privacy_threshold))
+    output_tsv_fn = tsv.replace('.tsv', '_public.tsv')
+    df.to_csv(output_tsv_fn, sep='\t')
+    return output_tsv_fn
+
+def host_to_site(host):
+    """Aggregate URL hosts to more general platforms."""
+
+    # www.facebook.com m.facebook.com l.facebook.com lm.facebook.com
+    if 'facebook' in host:
+        return 'Facebook'
+    # youtu.be www.youtube.com youtube.com m.youtube.com
+    elif 'youtu' in host:
+        return 'Youtube'
+    # old.reddit.com www.reddit.com
+    elif 'reddit' in host:
+        return 'Reddit'
+    # t.co twitter.com
+    elif 'twitter' in host or host == 't.co':
+        return 'Twitter'
+
+def add_metadata(tsv, yesterday_tsv=None):
+    """Add metadata from API to counts.
+
+    Currently this adds:
+    * title: canonical page title for that page ID (may not be the redirect being used)
+    * watchers: # of people with article on their watchlist
+    * visitingwatchers: # of watchers who visited the page in the last 6 months
+    * smtcountyesterday: # of pageviews from the same site from yesterday's report
+    """
     df = pd.read_csv(tsv, sep='\t')
     page_ids_sets = chunk(list(set(df['pageid'])), 50)
 
@@ -122,114 +215,60 @@ def add_metadata(tsv):
                 watchers[pid] = result.get('watchers', 0)
                 visitingwatchers[pid] = result.get('visitingwatchers', 0)
                 titles[pid] = result.get('title', '--')
-            time.sleep(1)
+            time.sleep(1)  # be kind to API
 
     for name, data in {'watchers':watchers, 'visitingwatchers':visitingwatchers, 'page_title':titles}.items():
         metadata = pd.Series(data)
         metadata.name = name
         df = df.join(metadata, how='left', on='pageid')
 
+    # add social media traffic counts from yesterdays report.
+    # set to zero if no report or site-pageID not in yesterday's report
+    if os.path.exists(yesterday_tsv):
+        df = pd.read_csv(yesterday_tsv, sep='\t')
+        df['site_pageid'] = df.apply(lambda x: '{0}-{1}'.format(x['site'], x['pageid']), axis=1)
+        df.set_index('site_pageid', inplace=True)
+        yesterdays_data = df['smtpageviews'].to_dict()
+        df['smtcountyesterday'] = df.apply(match_yesterday, args=(yesterdays_data,), axis=1)
+    else:
+        print("Did not find data from yesterday: {0}".format(yesterday_tsv))
+        df['smtcountyesterday'] = 0
+
     output_tsv_fn = tsv.replace('.tsv', '_watchlist.tsv')
     df.to_csv(output_tsv_fn, sep='\t', index=False)
     return output_tsv_fn
 
+def match_yesterday(row, yesterdays_data):
+    """Look up unique site-pageID in yesterday's traffic data."""
+    uid = '{0}-{1}'.format(row.name[0], row.name[1])
+    return yesterdays_data.get(uid, 0)
+
 
 def chunk(pageids, batch_size=50):
+    """Batch pageIDS into sets of 50 for the Mediawiki API."""
     chunks = []
     for i in range(0, len(pageids), batch_size):
         chunks.append([str(p) for p in pageids[i:i+batch_size]])
     return chunks
 
-
-def make_public(tsv, privacy_threshold=500, yesterdays_data=None):
-    df = pd.read_csv(tsv, sep='\t')
-    print("{0} rows before aggregation / trimming.".format(len(df)))
-    df = df[~df['refererhost'].isnull()]
-    print("{0} rows after removing null hosts.".format(len(df)))
-    df['site'] = df['refererhost'].apply(host_to_site)
-    df = df[~df['site'].isnull()]
-    print("{0} rows after removing false positive sites.".format(len(df)))
-    df = df.groupby(['site', 'pageid'])[['smtpageviews', 'totalpageviews']].agg({'smtpageviews':sum, 'totalpageviews':max})
-    df = df[df['smtpageviews'] > privacy_threshold]
-    if yesterdays_data is not None:
-        df['smtcountyesterday'] = df.apply(match_yesterday, args=(yesterdays_data,), axis=1)
-    else:
-        df['smtcountyesterday'] = 0
-    output_tsv_fn = tsv.replace('.tsv', '_public.tsv')
-    df.to_csv(output_tsv_fn, sep='\t')
-    print("{0} rows after aggregation / trimming.".format(len(df)))
-    return output_tsv_fn
-
-def match_yesterday(row, yesterdays_data):
-    uid = '{0}-{1}'.format(row.name[0], row.name[1])
-    return yesterdays_data.get(uid, 0)
-
-def host_to_site(host):
-    if 'facebook' in host:
-        return 'Facebook'
-    elif 'youtu' in host:
-        return 'Youtube'
-    elif 'reddit' in host:
-        return 'Reddit'
-    elif 'twitter' in host or host == 't.co':
-        return 'Twitter'
-
-def valid_args(args):
-    is_valid = True
-    try:
-        datetime.datetime(year=args.year, month=args.month, day=args.day)
-    except Exception:
-        traceback.print_exc()
-        is_valid = False
-
-    try:
-        check_kerberos_auth()
-    except OSError:
-        traceback.print_exc()
-        is_valid = False
-
-    if args.data_threshold > args.privacy_threshold:
-        print("Data threshold is {0}, which is greater than the privacy threshold ({1}).".format(args.data_threshold, args.privacy_threshold))
-        is_valid = False
-
-    if args.privacy_threshold < 500:
-        print("WARNING: privacy threshold may be set too low at {0}. Should be at least 500.".format(args.privacy_threshold))
-
-    if not os.path.exists(args.output_directory):
-        print("{0} does not exist. You must create it first.".format(args.output_directory))
-        is_valid = False
-
-    print("Arguments: {0}".format(args))
-
-    return is_valid
-
-def check_kerberos_auth():
-    """Check Kerberos authentication.
-
-    Taken from https://github.com/neilpquinn/wmfdata/blob/a2d0ed1085ccc6cf79e74f4b8da6dd1f72eef1f9/wmfdata/utils.py
-    TODO: depend on wmfdata package.
-    """
-    klist = subprocess.call(["klist", "-s"])
-    if klist == 1:
-        raise OSError(
-            "You do not have Kerberos credentials. Authenticate using `kinit` "
-            "or run your script as a keytab-enabled user."
-        )
-    elif klist != 0:
-        raise OSError(
-          "There was an unknown issue checking your Kerberos credentials."
-        )
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--year", type=int, help="Year for which to gather data -- e.g., 2020")
-    parser.add_argument("--month", type=int, help="Month for which to gather data -- e.g., '3' for March")
-    parser.add_argument("--day", type=int, help="Day for which to gather data -- e.g., '15' for 15th of the month")
-    parser.add_argument("--hive_db", default='isaacj', help='Hive database where SMTR table will be stored.')
-    parser.add_argument("--nice", default=True, action='store_false', help='Run queries as low priority.')
-    parser.add_argument("--data_threshold", default=20, type=int, help="Minimum # of externally-referred pageviews to retain page in Hive tables.")
-    parser.add_argument("--privacy_threshold", default=500, type=int, help="Minimum # of externally-referred pageviews to include page in report.")
-    parser.add_argument("--output_directory", help="Where to store TSV reports.")
+    parser.add_argument("--year", type=int,
+                        help="Year for which to gather data -- e.g., 2020")
+    parser.add_argument("--month", type=int,
+                        help="Month for which to gather data -- e.g., '3' for March")
+    parser.add_argument("--day", type=int,
+                        help="Day for which to gather data -- e.g., '15' for 15th of the month")
+    parser.add_argument("--hive_db", default='isaacj',
+                        help='Hive database where SMTR table will be stored.')
+    parser.add_argument("--nice", default=True, action='store_false',
+                        help='Run queries as low priority.')
+    parser.add_argument("--data_threshold", default=20, type=int,
+                        help="Minimum # of externally-referred pageviews to retain page in Hive tables.")
+    parser.add_argument("--privacy_threshold", default=500, type=int,
+                        help="Minimum # of externally-referred pageviews to include page in report.")
+    parser.add_argument("--output_directory",
+                        help="Where to store TSV reports.")
     args = parser.parse_args()
 
     if valid_args(args):
@@ -254,23 +293,15 @@ def main():
 
         # clean up
         print("\n==Cleaning / applying privacy thresholds==")
-        yday = datetime.datetime(year=args.year, month=args.month, day=args.day) - datetime.timedelta(days=1)
-        yesterday_tsv = os.path.join(args.output_directory,
-                                     "smtr_{0}_{1:02}_{2:02}_public.tsv".format(yday.year, yday.month, yday.day))
-        if os.path.exists(yesterday_tsv):
-            df = pd.read_csv(yesterday_tsv, sep='\t')
-            df['site_pageid'] = df.apply(lambda x: '{0}-{1}'.format(x['site'], x['pageid']), axis=1)
-            df.set_index('site_pageid', inplace=True)
-            yesterdays_data = df['smtpageviews'].to_dict()
-        else:
-            yesterdays_data = None
-
-        public_tsv = make_public(raw_counts_tsv, privacy_threshold=args.privacy_threshold, yesterdays_data=yesterdays_data)
+        public_tsv = make_public(raw_counts_tsv, privacy_threshold=args.privacy_threshold)
         print("Aggregated TSV at: {0}".format(public_tsv))
 
         # add watchlist data
         print("\n==Adding watchlist/title data==")
-        metadata_tsv = add_metadata(public_tsv)
+        yday = datetime.datetime(year=args.year, month=args.month, day=args.day) - datetime.timedelta(days=1)
+        yesterday_tsv = os.path.join(args.output_directory,
+                                     "smtr_{0}_{1:02}_{2:02}_public.tsv".format(yday.year, yday.month, yday.day))
+        metadata_tsv = add_metadata(public_tsv, yesterday_tsv=yesterday_tsv)
         print("Counts + watchlist data TSV at: {0}".format(metadata_tsv))
 
 
