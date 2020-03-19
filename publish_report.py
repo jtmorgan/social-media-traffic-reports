@@ -60,6 +60,8 @@ def prepare_data(df_traffic):
 
     #reset the index to reflect the ranking
     df_traffic.reset_index(drop=True, inplace=True)
+    
+    df_traffic = format_lower_limits(df_traffic)
 
     #format the wikitable rows with relevant columns from the dataframe
     report_rows = [format_row(a, b, c, d, e, f, g, h, rt_row)
@@ -89,6 +91,17 @@ def prepare_data(df_traffic):
 #     print(output)
     return(output)
 
+def format_lower_limits(df_traffic): #need to refactor!
+	"""
+	Accepts a dataframe with these specific columns
+	Retu
+	"""
+	df_traffic.loc[(df_traffic.smtcountyesterday == 0), "smtcountyesterday"] = ">500"
+	df_traffic.loc[(df_traffic.visitingwatchers == 0), "visitingwatchers"] = ">30"
+	df_traffic.loc[(df_traffic.watchers == 0), "watchers"] = ">30"	
+	
+	return df_traffic
+	
 def get_yesterdates():
     """
     Returns month, day year for yesterday; month and day for day before
