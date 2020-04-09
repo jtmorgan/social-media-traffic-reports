@@ -19,7 +19,7 @@ auth1 = OAuth1(config.consumer_key,
                config.access_secret)
 
 #page sectiona and wikitable template (top)
-rt_header = """== Top articles by social media traffic on {year}-{month}-{day} ==
+RT_HEADER = """== Top articles by social media traffic on {year}-{month}-{day} ==
 Last updated on ~~~~~
 
 {{| class="wikitable sortable"
@@ -34,7 +34,7 @@ Last updated on ~~~~~
 """
 
 #template for individual table rows
-rt_row = """|-
+RT_ROW = """|-
 |{rank}
 |{platform}
 |[[w:{title}|{title}]]
@@ -45,7 +45,7 @@ rt_row = """|-
 |{v_watch}
 """
 
-def prepare_data(df_traffic):
+def prepare_data(df_traffic, data_date=None):
     """
     Accept a dataframe with the expected columns
     Returns the full wikipage text as a string
@@ -55,7 +55,7 @@ def prepare_data(df_traffic):
     df_traffic.sort_values('smtpageviews', ascending=False, inplace=True)
 
     #rank rows by views from this platform yesterday
-    new_rank = range(1, len(df_traffic)+1)
+    new_rank = range(1, len(df_traffic) + 1)
     df_traffic['rank'] = list(new_rank)
 
     #reset the index to reflect the ranking
@@ -64,7 +64,7 @@ def prepare_data(df_traffic):
     df_traffic = format_lower_limits(df_traffic)
 
     #format the wikitable rows with relevant columns from the dataframe
-    report_rows = [format_row(a, b, c, d, e, f, g, h, rt_row)
+    report_rows = [format_row(a, b, c, d, e, f, g, h, RT_ROW)
     for a, b, c, d, e, f, g, h
     in zip(df_traffic['rank'],
             df_traffic['site'],
@@ -80,10 +80,10 @@ def prepare_data(df_traffic):
     rows_wiki = ''.join(report_rows)
 
     #get datestrings from yesterday and the day before to populate the wikitable
-    date_parts = get_yesterdates()
+    date_parts = get_yesterdates(data_date)
 
     #format wikipage header template
-    header = rt_header.format(**date_parts)
+    header = RT_HEADER.format(**date_parts)
 
     #combine the header with the now-populated table rows
     output = header + rows_wiki + "|}"
@@ -92,26 +92,36 @@ def prepare_data(df_traffic):
     return(output)
 
 def format_lower_limits(df_traffic): #need to refactor!
-	"""
-	Accepts a dataframe with these specific columns
-	Retu
-	"""
-	df_traffic.loc[(df_traffic.smtcountyesterday == 0), "smtcountyesterday"] = "< 500"
-	df_traffic.loc[(df_traffic.visitingwatchers == 0), "visitingwatchers"] = "< 30"
-	df_traffic.loc[(df_traffic.watchers == 0), "watchers"] = "< 30"	
-	
-	return df_traffic
-	
-def get_yesterdates():
+    """
+    Accepts a dataframe with these specific columns
+    Returns a dataframe with lower counts reformatted to more user-friendly values
+    """
+    df_traffic.loc[(df_traffic.smtcountyesterday == 0), "smtcountyesterday"] = "< 500"
+    df_traffic.loc[(df_traffic.visitingwatchers == 0), "visitingwatchers"] = "< 30"
+    df_traffic.loc[(df_traffic.watchers == 0), "watchers"] = "< 30"
+
+    return df_traffic
+
+def get_yesterdates(data_date=None):
     """
     Returns month, day year for yesterday; month and day for day before
     """
-    date_parts = {'year': datetime.strftime(datetime.now() - timedelta(1), '%Y'),
-       'month' : datetime.strftime(datetime.now() - timedelta(1), '%m'),
-       'day': datetime.strftime(datetime.now() - timedelta(1), '%d'),
-       'month2' : datetime.strftime(datetime.now() - timedelta(2), '%m'),
-       'day2': datetime.strftime(datetime.now() - timedelta(2), '%d'),
-        }
+    if data_date is None:
+        # assume data is from yesterday
+        date_parts = {'year': datetime.strftime(datetime.now() - timedelta(1), '%Y'),
+                      'month' : datetime.strftime(datetime.now() - timedelta(1), '%m'),
+                      'day': datetime.strftime(datetime.now() - timedelta(1), '%d'),
+                      'month2' : datetime.strftime(datetime.now() - timedelta(2), '%m'),
+                      'day2': datetime.strftime(datetime.now() - timedelta(2), '%d'),
+                      }
+    else:
+        data_date = datetime.strptime(data_date, '%Y-%m-%d')
+        date_parts = {'year': datetime.strftime(data_date, '%Y'),
+                      'month': datetime.strftime(data_date, '%m'),
+                      'day': datetime.strftime(data_date, '%d'),
+                      'month2': datetime.strftime(data_date - timedelta(1), '%m'),
+                      'day2': datetime.strftime(data_date - timedelta(1), '%d'),
+                      }
 
     return date_parts
 
@@ -181,18 +191,21 @@ def publish_report(output, auth1, edit_token):
     headers={'User-Agent': config.user_agent},
     auth=auth1
         )
-#     print(response)
+    print("Successfully posted: {0}".format(edit_sum))
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_tsv", default="fake_data.csv",
+    parser.add_argument("--data_tsv",
                         help="TSV file with articles that exceeded the privacy threshold for social-media referrals.")
+    parser.add_argument("--date",
+                        default=datetime.strftime(datetime.now() - timedelta(1), "%Y-%m-%d"),
+                        help="Date of data in YYYY-MM-DD format")
     args = parser.parse_args()
 
-    df_traffic = pd.read_csv(args.data_tsv, delimiter='\t',encoding='utf-8')
+    df_traffic = pd.read_csv(args.data_tsv, delimiter='\t', encoding='utf-8')
 
-    output = prepare_data(df_traffic)
+    output = prepare_data(df_traffic, args.date)
 
     edit_token = get_token(auth1)
 
