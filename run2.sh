@@ -15,7 +15,4 @@ YEAR=$(date -d "yesterday 13:00" '+%Y')
 
 echo "Running pipeline for ${YEAR}-${MONTH}-${DAY}."
 
-#cmt out because run2.sh only executes the second half of the pipeline
-#python /home/isaacj/social-media-traffic-reports/extract_requests.py --year "${YEAR}" --month "${MONTH}" --day "${DAY}" --hive_db ${HIVE_DB} --nice --data_threshold ${DATA_THRESHOLD} --privacy_threshold ${PRIVACY_THRESHOLD} --output_directory ${DATA_DIR}
-
-python /home/jmorgan/social-media-traffic-reports/publish_report.py --data_tsv "${DATA_DIR}/smtr_${YEAR}_${MONTH}_${DAY}_public_watchlist.tsv"
+python publish_report --data_tsv "${DATA_DIR}/smtr_${YEAR}_${MONTH}_${DAY}_public_watchlist.tsv" --date "${YEAR}-${MONTH}-${DAY}"
