@@ -162,7 +162,7 @@ def make_public(tsv, privacy_threshold=500):
     df = df.groupby(['site', 'pageid'])[['smtpageviews', 'totalpageviews']].agg({'smtpageviews':sum, 'totalpageviews':max})
     print("{0} rows after grouping by platform.".format(len(df)))
     df = df[df['smtpageviews'] > privacy_threshold]
-    print("{0} rows after enforcing privacy threshold of {0} page views.".format(len(df), privacy_threshold))
+    print("{0} rows after enforcing privacy threshold of {1} page views.".format(len(df), privacy_threshold))
     output_tsv_fn = tsv.replace('.tsv', '_public.tsv')
     df.to_csv(output_tsv_fn, sep='\t')
     return output_tsv_fn
