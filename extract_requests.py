@@ -175,7 +175,7 @@ def host_to_site(host):
         return 'Facebook'
     # youtu.be www.youtube.com youtube.com m.youtube.com
     elif 'youtu' in host:
-        return 'Youtube'
+        return 'YouTube'
     # old.reddit.com www.reddit.com
     elif 'reddit' in host:
         return 'Reddit'
