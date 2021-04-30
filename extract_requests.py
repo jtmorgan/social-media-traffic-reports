@@ -61,10 +61,8 @@ def check_kerberos_auth():
           "There was an unknown issue checking your Kerberos credentials."
         )
 
-def exec_hive_stat2(query, filename=None, verbose=True, nice=True, large=False):
+def exec_hive_stat2(query, filename=None, verbose=True, large=False):
     """Query Hive."""
-    if nice:
-        query = "SET mapreduce.job.queuename=nice; " + query
     if large:
         query = "SET mapreduce.map.memory.mb=4096; " + query
     cmd = """hive -e \" """ + query + """ \""""
@@ -75,7 +73,7 @@ def exec_hive_stat2(query, filename=None, verbose=True, nice=True, large=False):
     ret = os.system(cmd)
     return ret
 
-def create_hive_trace_table(hive_db='isaacj', nice=True):
+def create_hive_trace_table(hive_db='isaacj'):
     """Create a table for pageview counts partitioned by day."""
 
     query = """
@@ -91,10 +89,10 @@ def create_hive_trace_table(hive_db='isaacj', nice=True):
     STORED AS PARQUET;
     """.format(hive_db)
 
-    exec_hive_stat2(query, nice=nice)
+    exec_hive_stat2(query)
 
 
-def add_day_to_hive_smtr_table(year, month, day, data_threshold=100, hive_db='isaacj', nice=True):
+def add_day_to_hive_smtr_table(year, month, day, data_threshold=100, hive_db='isaacj'):
     """Add one day's worth of data to the Hive table."""
 
     query = """
@@ -105,7 +103,7 @@ def add_day_to_hive_smtr_table(year, month, day, data_threshold=100, hive_db='is
            SUM(IF(access_method = 'desktop', 1, 0)) as SMTPVDesktop,
            SUM(IF(access_method = 'mobile web', 1, 0)) as SMTPVMobile,
            COUNT(1) AS SMTPageViews
-      FROM wmf.webrequest
+      FROM wmf.pageview_actor
      WHERE year = {1} AND month = {2} AND day = {3}
            AND is_pageview
            AND normalized_host.project_class = 'wikipedia'
@@ -121,7 +119,7 @@ def add_day_to_hive_smtr_table(year, month, day, data_threshold=100, hive_db='is
            PARSE_URL(referer, 'HOST')
     HAVING COUNT(1) > {4};""".format(hive_db, year, month, day, data_threshold)
 
-    exec_hive_stat2(query, nice=nice)
+    exec_hive_stat2(query)
 
 
 def smtr_counts_to_tsv(hive_db, year, month, day, output_dir):
@@ -261,8 +259,6 @@ def main():
                         help="Day for which to gather data -- e.g., '15' for 15th of the month")
     parser.add_argument("--hive_db", default='isaacj',
                         help='Hive database where SMTR table will be stored.')
-    parser.add_argument("--nice", default=True, action='store_false',
-                        help='Run queries as low priority.')
     parser.add_argument("--data_threshold", default=20, type=int,
                         help="Minimum # of externally-referred pageviews to retain page in Hive tables.")
     parser.add_argument("--privacy_threshold", default=500, type=int,
@@ -274,15 +270,13 @@ def main():
     if valid_args(args):
         # Create table in Hive to store data
         print("\n==Creating Hive table (if it doesn't exist)==")
-        create_hive_trace_table(hive_db=args.hive_db,
-                                nice=args.nice)
+        create_hive_trace_table(hive_db=args.hive_db)
 
         # Add day to table
         print("\n==Adding data from {0}-{1}-{2}==".format(args.year, args.month, args.day))
         add_day_to_hive_smtr_table(year=args.year, month=args.month, day=args.day,
                                    data_threshold=args.data_threshold,
-                                   hive_db=args.hive_db,
-                                   nice=args.nice)
+                                   hive_db=args.hive_db)
 
         # export Hive data to TSV
         print("\n==Joining pageview_hourly and outputting to TSV==")
