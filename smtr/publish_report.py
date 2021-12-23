@@ -52,7 +52,7 @@ def prepare_data(df_traffic, data_date=None):
     """
 
     #sort dataframe by views this platform yesterday (descending)
-    df_traffic.sort_values('smtpageviews', ascending=False, inplace=True)
+    df_traffic.sort_values('sviews', ascending=False, inplace=True)
 
     #rank rows by views from this platform yesterday
     new_rank = range(1, len(df_traffic) + 1)
@@ -67,11 +67,11 @@ def prepare_data(df_traffic, data_date=None):
     report_rows = [format_row(a, b, c, d, e, f, g, h, RT_ROW)
     for a, b, c, d, e, f, g, h
     in zip(df_traffic['rank'],
-            df_traffic['site'],
+            df_traffic['source'],
             df_traffic['page_title'],
-            df_traffic['smtpageviews'],
-            df_traffic['smtcountyesterday'],
-            df_traffic['totalpageviews'],
+            df_traffic['sviews'],
+            df_traffic['sviewsyesterday'],
+            df_traffic['total_views'],
             df_traffic['watchers'],
             df_traffic['visitingwatchers'],
             )]
@@ -96,7 +96,7 @@ def format_lower_limits(df_traffic): #need to refactor!
     Accepts a dataframe with these specific columns
     Returns a dataframe with lower counts reformatted to more user-friendly values
     """
-    df_traffic.loc[(df_traffic.smtcountyesterday == 0), "smtcountyesterday"] = "< 500"
+    df_traffic.loc[(df_traffic.sviewsyesterday == 0), "sviewsyesterday"] = "< 500"
     df_traffic.loc[(df_traffic.visitingwatchers == 0), "visitingwatchers"] = "< 30"
     df_traffic.loc[(df_traffic.watchers == 0), "watchers"] = "< 30"
 
@@ -142,7 +142,6 @@ def format_row(rank, platform, title, p_views, p_views_y, t_views, watch, v_watc
                     }
 
     row = row_template.format(**table_row)
-#     print(row)
     return(row)
 
 def get_token(auth1):
@@ -163,7 +162,6 @@ def get_token(auth1):
         auth=auth1,
         ).json()
 
-#     print(result)
     edit_token = result['query']['tokens']['csrftoken']
 
     return(edit_token)
@@ -191,7 +189,7 @@ def publish_report(output, auth1, edit_token):
     headers={'User-Agent': config.user_agent},
     auth=auth1
         )
-    print("Successfully posted: {0}".format(edit_sum))
+    print(f"Successfully posted: {edit_sum}")
 
 if __name__ == "__main__":
 

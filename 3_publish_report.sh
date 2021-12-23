@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # activate python3 environment
-source /home/isaacj/venv/bin/activate
+source /usr/bin/conda-activate-stacked
 
 # make sure web proxy set up so script can reach MediaWiki API
 export http_proxy=http://webproxy.eqiad.wmnet:8080
@@ -15,4 +15,4 @@ YEAR=$(date -d "yesterday 13:00" '+%Y')
 
 echo "Running pipeline for ${YEAR}-${MONTH}-${DAY}."
 
-python /home/jmorgan/social-media-traffic-reports/publish_report.py --data_tsv "${DATA_DIR}/smtr_${YEAR}_${MONTH}_${DAY}_public_watchlist.tsv" --date "${YEAR}-${MONTH}-${DAY}"
+python /home/isaacj/social-media-traffic-reports/publish_report.py --data_tsv "${DATA_DIR}/smtr_${YEAR}_${MONTH}_${DAY}.tsv" --date "${YEAR}-${MONTH}-${DAY}"
