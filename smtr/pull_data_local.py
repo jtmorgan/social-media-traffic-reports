@@ -60,7 +60,7 @@ def smtr_counts_to_df(hive_table, year, month, day, lang, privacy_threshold=500)
           AND t.page_id = y.page_id)
     WHERE
       year = {year} AND month = {month} AND day = {day}
-      AND lang = {lang}
+      AND lang = '{lang}'
       AND (sviews_desktop + sviews_mobile > {privacy_threshold})      
     """
 
