@@ -17,7 +17,7 @@ YEAR=$(date -d "yesterday 13:00" '+%Y')
 
 echo "Running pipeline for ${YEAR}-${MONTH}-${DAY}."
 
-python /home/isaacj/social-media-traffic-reports/extract_requests.py --year "${YEAR}" --month "${MONTH}" --day "${DAY}" --langs "${LANGS}" --hive_table ${HIVE_TABLE} --data_threshold ${DATA_THRESHOLD}
+python /home/isaacj/social-media-traffic-reports/smtr/extract_requests.py --year "${YEAR}" --month "${MONTH}" --day "${DAY}" --langs "${LANGS}" --hive_table ${HIVE_TABLE} --data_threshold ${DATA_THRESHOLD}
 
 # Only run this automatically after a few days of manual checks for testing
 # python /home/isaacj/social-media-traffic-reports/publish_report --data_tsv "${DATA_DIR}/smtr_${YEAR}_${MONTH}_${DAY}_public_watchlist.tsv" --date "${YEAR}-${MONTH}-${DAY}"

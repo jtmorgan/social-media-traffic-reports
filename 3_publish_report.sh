@@ -15,4 +15,4 @@ YEAR=$(date -d "yesterday 13:00" '+%Y')
 
 echo "Running pipeline for ${YEAR}-${MONTH}-${DAY}."
 
-python /home/isaacj/social-media-traffic-reports/publish_report.py --data_tsv "${DATA_DIR}/smtr_${YEAR}_${MONTH}_${DAY}.tsv" --date "${YEAR}-${MONTH}-${DAY}"
+python /home/isaacj/social-media-traffic-reports/smtr/publish_report.py --data_tsv "${DATA_DIR}/smtr_${YEAR}_${MONTH}_${DAY}.tsv" --date "${YEAR}-${MONTH}-${DAY}"
