@@ -45,7 +45,7 @@ def smtr_counts_to_df(hive_table, year, month, day, lang, privacy_threshold=500)
         FROM {hive_table}
         WHERE
           year = {yday.year} AND month = {yday.month} AND day = {yday.day}
-          AND lang = {lang}
+          AND lang = '{lang}'
           AND (sviews_desktop + sviews_mobile > {privacy_threshold})          
     )
     SELECT
@@ -122,7 +122,7 @@ def main():
                         help="Day for which to gather data -- e.g., '15' for 15th of the month")
     parser.add_argument("--lang", default='en', type=str,
                         help="Wikipedia language -- e.g., en for English")
-    parser.add_argument("--hive_table", default='isaacj.smtr_by_day',
+    parser.add_argument("--hive_table", default='isaacj.smtr',
                         help='Hive database where SMTR table will be stored.')
     parser.add_argument("--privacy_threshold", default=500, type=int,
                         help="Minimum # of externally-referred pageviews to include page in report.")

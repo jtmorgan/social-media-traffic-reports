@@ -7,6 +7,7 @@ source /usr/bin/conda-activate-stacked
 export http_proxy=http://webproxy.eqiad.wmnet:8080
 export https_proxy=http://webproxy.eqiad.wmnet:8080
 
+HIVE_TABLE="isaacj.smtr"
 DATA_DIR="/home/isaacj/social-media-traffic-reports/data"
 LANG="en"
 PRIVACY_THRESHOLD=500
@@ -17,4 +18,4 @@ YEAR=$(date -d "yesterday 13:00" '+%Y')
 
 echo "Running pipeline for ${YEAR}-${MONTH}-${DAY}."
 
-python /home/isaacj/social-media-traffic-reports/pull_data_local.py --year "${YEAR}" --month "${MONTH}" --day "${DAY}" --lang "${LANG}" --hive_table ${HIVE_TABLE} --privacy_threshold ${PRIVACY_THRESHOLD} --output_directory ${DATA_DIR}
+python /home/isaacj/social-media-traffic-reports/smtr/pull_data_local.py --year "${YEAR}" --month "${MONTH}" --day "${DAY}" --lang "${LANG}" --hive_table ${HIVE_TABLE} --privacy_threshold ${PRIVACY_THRESHOLD} --output_directory ${DATA_DIR}
