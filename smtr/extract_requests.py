@@ -69,6 +69,7 @@ def add_day_to_hive_smtr_table(spark, year, month, day, data_threshold=100, lang
           AND agent_type = 'user'
           AND referer_class = 'external'
           AND (referer LIKE '%reddit.com%' OR
+               referer LIKE '%tiktok%' OR
                referer LIKE '%facebook.com%' OR 
                referer LIKE '%t.co/%' OR 
                referer LIKE '%twitter.com%' OR 
@@ -147,7 +148,7 @@ def host_to_site(host):
         # t.co twitter.com
         elif host.endswith('twitter.com') or host == 't.co':
             return 'Twitter'
-        elif host.endswith('tikitok.com'):
+        elif host.endswith('tiktok.com'):
             return 'TikTok'
     return None
 
